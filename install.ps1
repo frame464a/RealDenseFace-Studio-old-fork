@@ -7,11 +7,12 @@ $ProgressPreference = "SilentlyContinue"
 Set-Location $PSScriptRoot
 
 # Prebuilt CUDA extension wheels. A local .\wheels folder takes precedence (offline / testing).
-$ReleaseUrl = "https://github.com/frame464a/RealDenseFace-Studio/releases/download/v0.1.0"
+$ReleaseUrl = "https://github.com/frame464a/RealDenseFace-Studio/releases/download/v0.2.0"
 $Wheels = @(
     "flame_solver-0.0.0-cp311-cp311-win_amd64.whl",
     "nvdiffrast-0.4.0-cp311-cp311-win_amd64.whl",
-    "chumpy-0.70-py3-none-any.whl"
+    "chumpy-0.70-py3-none-any.whl",
+    "abc_writer-0.1.0-cp311-cp311-win_amd64.whl"
 )
 $TorchIndex = "https://download.pytorch.org/whl/cu128"
 
@@ -82,7 +83,7 @@ foreach ($wheel in $Wheels) {
 if ($LASTEXITCODE -ne 0) { Fail "Installing the GPU components failed." }
 
 Step "Checking the installation"
-& $py -c "import torch, flame_solver, nvdiffrast.torch, pxr, PySide6; assert torch.cuda.is_available(), 'CUDA not available'; print('OK:', torch.cuda.get_device_name(0))"
+& $py -c "import torch, flame_solver, nvdiffrast.torch, pxr, PySide6, abc_writer; assert torch.cuda.is_available(), 'CUDA not available'; print('OK:', torch.cuda.get_device_name(0))"
 if ($LASTEXITCODE -ne 0) { Fail "The installation check failed. See the messages above." }
 
 # --- Shortcut ---------------------------------------------------------------------------------

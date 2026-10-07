@@ -3,6 +3,8 @@
 Input: an npz from track_video_offline.py (--output_npz) or track_webcam.py (a take).
 
 Formats (pick with --format, default usd):
+    abc      one Alembic .abc file: animated mesh + UVs and the tracking camera (Maya, Houdini,
+             Blender, C4D, Nuke, Unreal).
     usd      one .usdc/.usda file: FLAME mesh with time-sampled points + UVs, and the
              tracking camera. Imports into Blender, Houdini, Maya, Unreal, C4D.
     pc2      base mesh .obj (with UVs) + .pc2 point cache (Blender "Mesh Cache"
@@ -31,7 +33,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--input", type=Path, required=True, help="Tracking npz.")
     parser.add_argument("--output", type=Path, required=True,
                         help="Output path: .usd/.usdc/.usda for usd, .pc2 for pc2, a directory for objseq.")
-    parser.add_argument("--format", choices=("usd", "pc2", "objseq", "mp4"), default="usd")
+    parser.add_argument("--format", choices=("usd", "abc", "pc2", "objseq", "mp4"), default="usd")
     parser.add_argument("--video_style", choices=VIDEO_STYLES, default="overlay", help="mp4 only.")
     parser.add_argument("--footage", type=str, default=None,
                         help="mp4 only: camera footage to draw on (default: the take's camera.mp4 / source video).")
@@ -39,7 +41,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--head_space", action="store_true",
                         help="Remove global head rotation/translation (expression + jaw/neck/eyes only).")
     parser.add_argument("--scale", type=float, default=1.0, help="Scale applied to geometry and camera (e.g. 100 for cm).")
-    parser.add_argument("--no_camera", action="store_true", help="USD only: do not write the tracking camera.")
+    parser.add_argument("--no_camera", action="store_true", help="USD/Alembic: do not write the tracking camera.")
     parser.add_argument("--flame_model", type=str, default="weights/flame/flame2023.pkl")
     parser.add_argument("--flame_assets", type=str, default="weights/flame/flame_assets.npz")
     parser.add_argument("--device", type=str, default="cuda")
@@ -97,7 +99,7 @@ def write_obj(path: Path, vertices: np.ndarray, faces: np.ndarray, uvs: np.ndarr
 def write_pc2(path: Path, frames: np.ndarray, fps: float) -> None:
     num_frames, num_points, _ = frames.shape
     with path.open("wb") as f:
-        f.write(struct.pack("<12siiffi", b"POINTCACHE2\0", 1, num_points, 0.0, 1.0, num_frames))
+        f.write(struct.pack("<12siiffi", b"POINTCACHE2\0", 1, num_points, 1.0, 1.0, num_frames))
         f.write(np.ascontiguousarray(frames, dtype="<f4").tobytes())
 
 
@@ -110,8 +112,8 @@ def write_usd(path: Path, frames: np.ndarray, faces: np.ndarray, uvs: np.ndarray
     UsdGeom.SetStageMetersPerUnit(stage, 1.0 / camera["scale"] if camera else 1.0)
     stage.SetTimeCodesPerSecond(fps)
     stage.SetFramesPerSecond(fps)
-    stage.SetStartTimeCode(0)
-    stage.SetEndTimeCode(len(frames) - 1)
+    stage.SetStartTimeCode(1)  # animation starts at frame 1, like most DCC scenes
+    stage.SetEndTimeCode(len(frames))
 
     root = UsdGeom.Xform.Define(stage, "/face")
     stage.SetDefaultPrim(root.GetPrim())
@@ -126,16 +128,18 @@ def write_usd(path: Path, frames: np.ndarray, faces: np.ndarray, uvs: np.ndarray
     points = mesh.CreatePointsAttr()
     extent = mesh.CreateExtentAttr()
     for i, frame in enumerate(frames):
-        points.Set(Vt.Vec3fArray.FromNumpy(frame), i)
-        extent.Set(Vt.Vec3fArray([Gf.Vec3f(*frame.min(0).tolist()), Gf.Vec3f(*frame.max(0).tolist())]), i)
+        points.Set(Vt.Vec3fArray.FromNumpy(frame), i + 1)
+        extent.Set(Vt.Vec3fArray([Gf.Vec3f(*frame.min(0).tolist()), Gf.Vec3f(*frame.max(0).tolist())]), i + 1)
 
     if camera is not None:
         cam = UsdGeom.Camera.Define(stage, "/face/tracking_camera")
+        # USD lens attributes are in tenths of a scene unit: with meters as units, 1 mm = 0.01.
+        mm = camera["scale"] / 100.0
         vertical_aperture = 24.0  # mm
         aspect = camera["width"] / camera["height"]
-        cam.CreateVerticalApertureAttr(vertical_aperture)
-        cam.CreateHorizontalApertureAttr(vertical_aperture * aspect)
-        cam.CreateFocalLengthAttr(0.5 * vertical_aperture / np.tan(np.radians(camera["fov_y_deg"]) * 0.5))
+        cam.CreateVerticalApertureAttr(vertical_aperture * mm)
+        cam.CreateHorizontalApertureAttr(vertical_aperture * aspect * mm)
+        cam.CreateFocalLengthAttr(0.5 * vertical_aperture / np.tan(np.radians(camera["fov_y_deg"]) * 0.5) * mm)
         cam.CreateClippingRangeAttr(Gf.Vec2f(0.01 * camera["scale"], 100.0 * camera["scale"]))
         # Tracker camera is OpenCV-style (x right, y down, z forward) = rot diag(1,-1,-1);
         # USD cameras look down -Z with +Y up, so flip y/z to get the USD camera frame.
@@ -287,6 +291,23 @@ def export(
             )
         write_usd(output, frames, faces, uvs, uv_faces, fps, camera)
         print(f"Saved USD: {output}")
+    elif fmt == "abc":
+        import abc_writer
+
+        output = output.with_suffix(".abc")
+        output.parent.mkdir(parents=True, exist_ok=True)
+        cam = dict(width=0, height=0)
+        if with_camera and not head_space:
+            fov = float(data["camera_fov_y"]) if "camera_fov_y" in data else float("nan")
+            cam = dict(
+                fov_y_deg=30.0 if np.isnan(fov) else fov,
+                width=int(data["image_width"]),
+                height=int(data["image_height"]),
+                position=tuple(float(v) for v in np.asarray(data["camera_pos"]).reshape(3)),
+                scale=scale,
+            )
+        abc_writer.write(str(output), frames, faces.astype(np.int32), uvs, uv_faces.astype(np.int32), fps, **cam)
+        print(f"Saved Alembic: {output}")
     elif fmt == "pc2":
         output = output.with_suffix(".pc2")
         output.parent.mkdir(parents=True, exist_ok=True)

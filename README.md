@@ -28,6 +28,7 @@ and exporters around their code.
 - **Process video files** in best quality (whole-clip solve with the larger model, runs on a second GPU if you have one).
 - **Export** each take as:
   - **USD (.usdc)**: animated mesh with UVs plus the tracking camera; imports into Blender, Houdini, Maya, Unreal, C4D
+  - **Alembic (.abc)**: the same, for pipelines built on Alembic (Maya, Houdini, Blender, C4D, Nuke, Unreal)
   - **OBJ + PC2 point cache**: Blender *Mesh Cache* modifier, 3ds Max, C4D, Houdini
   - **OBJ sequence**
   - **Video (.mp4)**: mesh over the footage, mesh only, or side by side
@@ -70,14 +71,15 @@ The very first launch afterwards takes a few minutes while the models are optimi
 
 ### Importing into your 3D app
 
-- **Blender**: *File → Import → Universal Scene Description* (the `.usdc`), or import the `.obj` and add a
+- **Blender**: *File → Import → Alembic* or *Universal Scene Description*; or import the `.obj` and add a
   *Mesh Cache* modifier pointing at the `.pc2`.
-- **Houdini**: *File → Import → USD* or a USD Import / LOP node; or File SOP with the OBJ + a point-cache workflow.
-- **Maya**: enable the *mayaUsdPlugin* and import the `.usdc`.
+- **Houdini**: Alembic SOP for the `.abc`, or *File → Import → USD* / a LOP node for the `.usdc`.
+- **Maya**: *Cache → Alembic Cache → Import* (needs the *AbcImport* plugin), or the *mayaUsdPlugin* for `.usdc`.
+- **Nuke**: ReadGeo / Camera nodes can read the `.abc` directly.
 - **Unreal**: import the `.usdc` via the USD Stage editor.
 
 Scenes are Y-up, meters by default, with the camera at the position of the real camera, so the mesh
-lines up with your footage through the exported camera.
+lines up with your footage through the exported camera. Animation starts at frame 1.
 
 ## License and credits
 
@@ -106,7 +108,8 @@ If you use this in research, please cite the RealDenseFace paper:
 
 ## Changes compared to the original repository
 
-- New: desktop app (`app.py`), setup wizard, installer, exporter (`export_animation.py`), webcam CLI (`track_webcam.py`).
+- New: desktop app (`app.py`), setup wizard, installer, exporter (`export_animation.py`), webcam CLI (`track_webcam.py`),
+  Alembic writer (`native/abc_writer`, built on the official Alembic library).
 - Fix: the face detector now letterboxes frames instead of stretching them to a square, which made it
   miss faces in wide (16:9) video ([LinzhouLi/RealDenseFace#4](https://github.com/LinzhouLi/RealDenseFace/issues/4)).
 - `track_video_offline.py` also stores the video frame rate in its `.npz` and falls back to uncompiled mode

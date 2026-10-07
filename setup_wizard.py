@@ -50,6 +50,14 @@ def setup_complete() -> bool:
     return weights_ok() and flame_ok()
 
 
+def is_flame_zip(path: Path) -> bool:
+    try:
+        with zipfile.ZipFile(path) as zf:
+            return any(Path(n).name.startswith("flame2023") and n.endswith(".pkl") for n in zf.namelist())
+    except zipfile.BadZipFile:
+        return False
+
+
 def install_weights_zip(zip_path: Path) -> None:
     with zipfile.ZipFile(zip_path) as zf:
         names = [n for n in zf.namelist() if n.startswith("weights/") and not n.endswith("/")]
@@ -192,7 +200,8 @@ class SetupDialog(QDialog):
         )
         self.download_btn = QPushButton("⬇  Download")
         self.download_btn.setObjectName("primary")
-        self.weights_zip_btn = QPushButton("I already have the zip…")
+        self.weights_zip_btn = QPushButton("Select weights zip…")
+        self.weights_zip_btn.setToolTip("Only if you downloaded the RealDenseFace weights zip in your browser.")
         self.weights_card.buttons.addWidget(self.download_btn)
         self.weights_card.buttons.addWidget(self.weights_zip_btn)
         layout.addWidget(self.weights_card)
@@ -277,6 +286,15 @@ class SetupDialog(QDialog):
         path, _ = QFileDialog.getOpenFileName(self, "Select the RealDenseFace weights zip", "", "Zip (*.zip);;All files (*)")
         if not path:
             return
+        if is_flame_zip(Path(path)):  # common mix-up: FLAME zip picked in step 1
+            self.install_flame_from(Path(path))
+            QMessageBox.information(
+                self, "That's the FLAME zip",
+                "That was the FLAME head model, so it was installed for step 2.\n\n"
+                "For step 1, click Download to get the tracking models.",
+            )
+            self.refresh()
+            return
         try:
             self.weights_card.status.setText("Unpacking…")
             self.repaint()
@@ -293,14 +311,17 @@ class SetupDialog(QDialog):
         )
         if not path:
             return
+        self.install_flame_from(Path(path))
+        self.refresh()
+
+    def install_flame_from(self, path: Path) -> None:
         try:
             self.flame_card.status.setText("Checking…")
             self.repaint()
-            install_flame(Path(path))
+            install_flame(path)
         except Exception as exc:  # noqa: BLE001
             self.flame_card.status.setText("")
             QMessageBox.warning(self, "Not the right file", str(exc))
-        self.refresh()
 
     def reject(self) -> None:
         if self.worker is not None and self.worker.isRunning():

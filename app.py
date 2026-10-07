@@ -55,6 +55,7 @@ VIEW_MODES = ["Overlay", "Mesh", "Camera", "Side by side"]
 RESOLUTIONS = {"640 x 480": (640, 480), "1280 x 720": (1280, 720), "1920 x 1080": (1920, 1080)}
 EXPORT_FORMATS = [
     ("USD  (.usdc)", "usd", "Animated mesh + camera in one file. Blender, Houdini, Maya, Unreal, C4D."),
+    ("Alembic (.abc)", "abc", "Animated mesh + camera in one file. Maya, Houdini, Blender, C4D, Nuke, Unreal."),
     ("OBJ + PC2 point cache", "pc2", "Base mesh + point cache. Blender Mesh Cache modifier, 3ds Max, C4D, Houdini."),
     ("OBJ sequence", "objseq", "One .obj per frame. Works everywhere, large on disk."),
     ("Video (.mp4)", "mp4", "Rendered video of the tracked mesh, for review or sharing."),
@@ -590,7 +591,7 @@ class MainWindow(QMainWindow):
         for label, _ in UNITS:
             self.units_combo.addItem(label)
         self.head_only_check = QCheckBox("Head-only (remove head rotation/position)")
-        self.camera_check = QCheckBox("Include tracking camera (USD)")
+        self.camera_check = QCheckBox("Include tracking camera")
         self.camera_check.setChecked(True)
         self.style_combo = QComboBox()
         for label, _ in VIDEO_STYLES:
@@ -829,7 +830,7 @@ class MainWindow(QMainWindow):
         self.export_form.setRowVisible(self.units_combo, not is_video)
         self.export_form.setRowVisible(self.style_combo, is_video)
         self.head_only_check.setVisible(not is_video)
-        self.camera_check.setVisible(fmt == "usd")
+        self.camera_check.setVisible(fmt in ("usd", "abc"))
 
     def show_take_folder(self) -> None:
         take = self.current_take()
@@ -852,6 +853,8 @@ class MainWindow(QMainWindow):
         scale = UNITS[self.units_combo.currentIndex()][1]
         if fmt == "usd":
             path, _ = QFileDialog.getSaveFileName(self, "Export USD", str(take.parent / "face.usdc"), "USD (*.usdc *.usda *.usd)")
+        elif fmt == "abc":
+            path, _ = QFileDialog.getSaveFileName(self, "Export Alembic", str(take.parent / "face.abc"), "Alembic (*.abc)")
         elif fmt == "pc2":
             path, _ = QFileDialog.getSaveFileName(self, "Export OBJ + PC2", str(take.parent / "face.pc2"), "Point cache (*.pc2)")
         elif fmt == "mp4":
