@@ -1,172 +1,95 @@
-<h1 align="center">RealDenseFace</h1>
+<h1 align="center">RealDenseFace Studio</h1>
 
 <p align="center">
-  <strong>Real-time Monocular 3D Face Reconstruction from Dense UV-space Priors</strong>
-</p>
-
-<p align="center">
-  Linzhou Li &nbsp;&nbsp; Tianjia Shao &nbsp;&nbsp; Kun Zhou<br>
-  State Key Lab of CAD&amp;CG, Zhejiang University
-</p>
-
-<p align="center">
-  <a href="https://gapszju.github.io/RealDenseFace/">Project Page</a>
-  &nbsp;·&nbsp;
-  <a href="https://arxiv.org/abs/2608.09238">Paper</a>
+  Real-time 3D face tracking for artists: track your face live from a webcam, or any face in a video,<br>
+  and export the animated head mesh to Blender, Houdini, Maya, Unreal or Cinema 4D.
 </p>
 
 <p align="center">
   <img src="assets/teaser.jpg" width="100%" alt="RealDenseFace teaser">
 </p>
 
-RealDenseFace is a real-time optimization-based framework for monocular FLAME
-reconstruction. It predicts dense UV-space correspondence and relative-depth
-priors, and fits FLAME using a tailored CUDA Gauss-Newton solver.
+> **Unofficial community project.** Not affiliated with or endorsed by the RealDenseFace authors.
 
-This repository provides inference and fitting code for single images, offline
-monocular sequences, online tracking, and a NeRSemble v2 multi-view tracking
-example.
+RealDenseFace Studio is a free desktop app built on
+[**RealDenseFace**](https://gapszju.github.io/RealDenseFace/) by Linzhou Li, Tianjia Shao and Kun Zhou
+(Zhejiang University): a state-of-the-art method that fits the [FLAME](https://flame.is.tue.mpg.de/) head
+model to video in real time. All the research credit goes to them. This project adds an app, an installer
+and exporters around their code.
 
-## News
+## Features
 
-- **2026-08-12**: Inference and fitting code with pretrained models released.
-- **2026-08-11**: Paper and project page released.
+- **Live webcam tracking** with the 3D mesh drawn over your face (~30–60 fps, depending on your camera).
+- **Record takes** with one key (Space) and keep the camera footage with them.
+- **Process video files** in best quality (whole-clip solve with the larger model, runs on a second GPU if you have one).
+- **Export** each take as:
+  - **USD (.usdc)**: animated mesh with UVs plus the tracking camera; imports into Blender, Houdini, Maya, Unreal, C4D
+  - **OBJ + PC2 point cache**: Blender *Mesh Cache* modifier, 3ds Max, C4D, Houdini
+  - **OBJ sequence**
+  - **Video (.mp4)**: mesh over the footage, mesh only, or side by side
+- Options: units (m / cm / mm), **head-only** export (removes head rotation and position, keeps expressions).
 
-Coming soon:
+## Requirements
 
-- GUI demo
-- Training data
+- Windows 10 or 11, 64-bit
+- An **NVIDIA RTX GPU** (20-series or newer) with driver **570 or newer**. AMD, Intel and Mac aren't supported (the solver is CUDA code).
+- About 10 GB of free disk space
+- A free account on the [FLAME website](https://flame.is.tue.mpg.de/) (the app walks you through it)
 
-## Installation
+## Install
 
-### Requirements
+1. Download this repository (**Code → Download ZIP**) and unpack it to a short folder path without spaces, e.g. `C:\RealDenseFaceStudio`.
+2. Double-click **`install.bat`**. It downloads a private copy of Python and PyTorch into that folder
+   (about 4 GB, takes 5–15 minutes). Nothing is installed system-wide; delete the folder to uninstall.
+3. Start **RealDenseFace Studio** from the desktop shortcut (or `RealDenseFace Studio.bat`).
 
-- Python 3.11
-- PyTorch with CUDA support
-- An NVIDIA GPU and a CUDA toolkit compatible with the installed PyTorch build
+### First start
 
-Create a conda environment:
+A setup window asks for two things, once:
 
-```bash
-conda create -n realdenseface python=3.11
-conda activate realdenseface
-```
+1. **Tracking models**: click **Download** (1.1 GB).
+2. **FLAME 2023 head model**: its license doesn't allow redistribution, so you get it yourself:
+   register at [flame.is.tue.mpg.de](https://flame.is.tue.mpg.de/), go to **Downloads**, download
+   **FLAME 2023 (revised eye region, improved expressions, versions w/ and w/o jaw rotation)**
+   (*not* "FLAME 2023 Open"), then select the zip in the setup window.
 
-Install a CUDA-enabled PyTorch build by following the
-[official PyTorch instructions](https://pytorch.org/get-started/locally/). Then
-install the remaining dependencies and build the local CUDA solver:
+The very first launch afterwards takes a few minutes while the models are optimized for your GPU.
 
-```bash
-pip install -r requirements.txt
-pip install -e ./cuda_extensions/flame_solver --no-build-isolation
-```
+## Using it
 
-### Pretrained models
+| Step | What to do |
+|---|---|
+| **1 Source** | Pick your webcam and press **Start webcam**, or **Open video file…** to play a clip with live tracking. |
+| **2 View** | Overlay / Mesh / Camera / Side by side (keys **1–4**). **Reset tracking** (key **R**) if the fit drifts. **Camera FOV**: most webcams are 35–50°. |
+| **3 Record** | **Space** starts/stops a take. **Process a video file (best quality)…** tracks a whole clip offline. |
+| **4 Takes & export** | Select a take, choose a format, **Export…**. |
 
-Download the released ViT-S and ViT-B checkpoints from
-[Google Drive](https://drive.google.com/file/d/1eLlN_BCFMn0jSo0lNwBFqtI6igTh7Nc3/view?usp=sharing) and place them under `weights/`:
+### Importing into your 3D app
 
-### FLAME model
+- **Blender**: *File → Import → Universal Scene Description* (the `.usdc`), or import the `.obj` and add a
+  *Mesh Cache* modifier pointing at the `.pc2`.
+- **Houdini**: *File → Import → USD* or a USD Import / LOP node; or File SOP with the OBJ + a point-cache workflow.
+- **Maya**: enable the *mayaUsdPlugin* and import the `.usdc`.
+- **Unreal**: import the `.usdc` via the USD Stage editor.
 
-The official FLAME model is subject to its own license and is not redistributed
-in this repository. Download `flame2023.pkl` from the
-[official FLAME website](https://flame.is.tue.mpg.de/) and place it at:
+Scenes are Y-up, meters by default, with the camera at the position of the real camera, so the mesh
+lines up with your footage through the exported camera.
 
-```text
-weights/flame/flame2023.pkl
-```
+## License and credits
 
-The expected model and asset layout is:
+- **App, installer and exporters**: MIT, see [LICENSE](LICENSE).
+- **RealDenseFace code**: MIT, © 2026 Li Linzhou. Original README: [README_RealDenseFace.md](README_RealDenseFace.md).
+  Paper: [arXiv:2608.09238](https://arxiv.org/abs/2608.09238).
+- **Pretrained weights**: downloaded from the authors' release; they were trained on research datasets
+  (NeRSemble, Ava-256, FaceScape) that are licensed for non-commercial use.
+- **FLAME 2023**: © Max Planck Institute for Intelligent Systems, under the
+  [FLAME license](https://flame.is.tue.mpg.de/modellicense.html) (non-commercial scientific research use).
+- Third-party components: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-```text
-weights/
-├── facebox/
-│   └── face_box.pth
-├── flame/
-│   ├── flame2023.pkl
-│   └── flame_assets.npz
-└── realdenseface/
-    ├── vitb.pth
-    └── vits.pth
-```
+**Because of the FLAME license and the training data, use this tool and its output for non-commercial
+purposes only.** For commercial use, check the licenses above and contact the rights holders.
 
-Run all commands below from the repository root.
-
-## Usage
-
-### Single-image fitting
-
-```bash
-python fit_single_image.py \
-    --input path/to/image.jpg \
-    --output_npz output/single_image.npz \
-    --output_image output/single_image.jpg
-```
-
-Single-image fitting uses the ViT-B checkpoint by default. To use ViT-S:
-
-```bash
-python fit_single_image.py \
-    --input path/to/image.jpg \
-    --output_npz output/single_image.npz \
-    --output_image output/single_image.jpg \
-    --model_config configs/model/vits.yaml \
-    --model_weights weights/realdenseface/vits.pth
-```
-
-### Offline monocular video fitting
-
-Offline fitting processes the complete sequence and refines a shared identity
-from multiple frames:
-
-```bash
-python track_video_offline.py \
-    --input assets/demo_video.mp4 \
-    --output_npz output/offline_tracking.npz \
-    --output_mp4 output/offline_visualization.mp4
-```
-
-### Online monocular video tracking
-
-Online tracking processes frames sequentially without using future frames. It
-uses the ViT-S checkpoint by default:
-
-```bash
-python track_video_online.py \
-    --input assets/demo_video.mp4 \
-    --output_mp4 output/online_visualization.mp4
-```
-
-### NeRSemble v2 multi-view tracking
-
-The NeRSemble v2 example downsamples the 16 camera videos, detects temporal
-jumps, caches RealDenseFace predictions, fits a multi-view FLAME sequence, and
-renders tracking visualizations:
-
-```bash
-python preprocess_nersemble_v2.py \
-    --dataset_root path/to/nersemble_v2 \
-    --subjects 001 \
-    --stride 1
-```
-
-For each sequence, results are written inside the dataset:
-
-```text
-<dataset_root>/<subject>/flame_tracking/<sequence>/
-├── downsample_videos/
-├── inference_cache/
-├── jump_frames.npz
-├── tracking_results.npz
-└── visualization/
-```
-
-Model architecture configurations are stored under `configs/model/`, while
-task-specific fitting parameters are stored separately under `configs/fitting/`.
-
-## Citation
-
-If you find this work useful, please consider citing:
+If you use this in research, please cite the RealDenseFace paper:
 
 ```bibtex
 @article{li2026realdenseface,
@@ -176,3 +99,11 @@ If you find this work useful, please consider citing:
   year    = {2026}
 }
 ```
+
+## Changes compared to the original repository
+
+- New: desktop app (`app.py`), setup wizard, installer, exporter (`export_animation.py`), webcam CLI (`track_webcam.py`).
+- Fix: the face detector now letterboxes frames instead of stretching them to a square, which made it
+  miss faces in wide (16:9) video ([LinzhouLi/RealDenseFace#4](https://github.com/LinzhouLi/RealDenseFace/issues/4)).
+- `track_video_offline.py` also stores the video frame rate in its `.npz` and falls back to uncompiled mode
+  if `torch.compile` fails.

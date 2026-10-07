@@ -119,6 +119,13 @@ class RealDenseFaceInferencer:
     def _detect_face_bbox(self, image: np.ndarray) -> np.ndarray | None:
         target_h = int(self.facebox_config.input_height)
         target_w = int(self.facebox_config.input_width)
+        # Letterbox to the detector's aspect ratio: stretching wide frames squashes faces and
+        # drops the detection score far below the threshold.
+        img_h, img_w = image.shape[:2]
+        pad_h = max(img_h, int(np.ceil(img_w * target_h / target_w)))
+        pad_w = max(img_w, int(np.ceil(img_h * target_w / target_h)))
+        if (pad_h, pad_w) != (img_h, img_w):
+            image = cv2.copyMakeBorder(image, 0, pad_h - img_h, 0, pad_w - img_w, cv2.BORDER_CONSTANT, value=0)
         resized = cv2.resize(image, (target_w, target_h), interpolation=cv2.INTER_LINEAR)
         tensor = torch.from_numpy(resized).to(self.face_detector.device, dtype=torch.float32) / 255.0
         tensor = tensor.permute(2, 0, 1).unsqueeze(0).contiguous()

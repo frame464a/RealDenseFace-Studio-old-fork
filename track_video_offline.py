@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 import common.fix_chumpy  # noqa: F401  (must import before FLAME model load)
 
 import argparse
@@ -52,6 +52,7 @@ def save_flame_npz(
     fit_result,
     inference,
     optimizer_config: GNFlameOptimizerConfig,
+    fps: float,
 ) -> None:
     camera_fov_y = np.nan if fit_result.camera_fov_y is None else np.float32(fit_result.camera_fov_y)
     np.savez(
@@ -64,6 +65,7 @@ def save_flame_npz(
         image_width=np.asarray(inference.image_width, dtype=np.int32),
         image_height=np.asarray(inference.image_height, dtype=np.int32),
         num_expressions=np.asarray(int(fit_result.x.shape[-1]) - 18, dtype=np.int32),
+        fps=np.asarray(fps, dtype=np.float32),
     )
 
 
@@ -122,7 +124,8 @@ def main() -> None:
     elapsed = time.perf_counter() - start_time
 
     if output_npz_path is not None:
-        save_flame_npz(output_npz_path, fit_result, inference, optimizer_config)
+        fps = args.fps if video_input.fps is None else float(video_input.fps)
+        save_flame_npz(output_npz_path, fit_result, inference, optimizer_config, fps)
         print(f"Saved npz: {output_npz_path}")
 
     if output_mp4_path is not None:
@@ -149,6 +152,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    import torch._dynamo
+
+    torch._dynamo.config.suppress_errors = True  # fall back to eager mode if compilation fails
     torch.set_grad_enabled(False)
     main()
 

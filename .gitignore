@@ -15,3 +15,8 @@ tmp/
 *.log
 imgui.ini
 weights/
+
+# RealDenseFace Studio local install
+.venv/
+tools/
+wheels/
