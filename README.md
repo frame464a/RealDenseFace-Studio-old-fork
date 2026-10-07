@@ -9,6 +9,10 @@
   <img src="assets/studio_screenshot.png" width="100%" alt="RealDenseFace Studio tracking a face in a video">
 </p>
 
+<p align="center">
+  <b>Windows 10/11 · NVIDIA RTX GPU (20-series or newer) only</b>
+</p>
+
 > **Unofficial community project.** Not affiliated with or endorsed by the RealDenseFace authors.
 
 RealDenseFace Studio is a free desktop app built on
