@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <img src="assets/teaser.jpg" width="100%" alt="RealDenseFace teaser">
+  <img src="assets/studio_screenshot.png" width="100%" alt="RealDenseFace Studio tracking a face in a video">
 </p>
 
 > **Unofficial community project.** Not affiliated with or endorsed by the RealDenseFace authors.
